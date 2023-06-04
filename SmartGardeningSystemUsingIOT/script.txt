@@ -1,0 +1,204 @@
+#include <ESP8266WiFi.h>
+#include "ThingSpeak.h"
+#include <TimeLib.h>
+#include <TimeAlarms.h>   // ASCII bell character requests a time sync message 
+#include "DHT.h"
+#define DHTPIN 2 
+#define DHTTYPE DHT11
+# include <Servo.h>
+
+const int motorPin1=5;
+const int motorPin2=6;
+const int motorPin3=10;
+const int motorPin4=9;
+DHT dht(DHTPIN, DHTTYPE);
+     String apiKey =""; 
+     int sensor=A0;
+     int pin=10;
+    const char* ssid     = "kitty";
+    const char* pass = "sidkittudhi";  
+    unsigned long myChannelNumber = "745731";
+    const char * myWriteAPIKey ="UZOIN6RWF3LYH6ZO";   
+WiFiClient  client;
+    int wifiStatus;
+     AlarmId id;
+String myStatus = "";
+    void setup() {
+      
+      Serial.begin(115200);\
+      delay(200);
+      pinMode (pin, OUTPUT);
+      dht.begin();
+     setTime(10,11,00,17,10,18); // set time to Saturday 8:29:00am Jan 1 2011
+      pinMode(pin,OUTPUT);
+      pinMode(motorPin1,OUTPUT);
+pinMode(motorPin2,OUTPUT);
+pinMode(motorPin3,OUTPUT);
+  pinMode(motorPin4,OUTPUT);
+  // create the alarms, to trigger at specific times
+      Alarm.alarmRepeat(10,12,00, MorningAlarm);  // 8:30am every day
+      Alarm.alarmRepeat(10,12,10,EveningAlarm);  // 5:45pm every day
+      Alarm.alarmRepeat(dowWednesday,8,45,30,WeeklyAlarm);  // 8:30:30 every Saturday
+
+  // create timers, to trigger relative to when they're created
+  Alarm.timerRepeat(15, Repeats);           // timer for every 15 seconds
+  id = Alarm.timerRepeat(2, Repeats2);      // timer for every 2 seconds
+  Alarm.timerOnce(10, OnceOnly);            // called once after 10 seconds// To connect to Wifi
+      // We start by connecting to a WiFi network
+     ThingSpeak.begin(client);  // Initialize ThingSpeak
+      Serial.println();
+      Serial.println();
+      Serial.print("Your are connecting to;");
+      Serial.println(ssid);
+      WiFi.mode(WIFI_STA); 
+      WiFi.begin(ssid, pass);
+      
+      while (WiFi.status() != WL_CONNECTED) 
+      {
+        delay(500);
+        Serial.print(".");
+      } 
+ }   
+     void loop()
+  {
+    digitalClockDisplay();
+  Alarm.delay(1000); 
+   float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+  int val=analogRead(sensor);
+   delay(2000);
+// wait one second between clock display
+if (isnan(h) || isnan(t) || isnan(f)) 
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  if (val==1023)
+  {
+    digitalWrite(11,HIGH); 
+    digitalWrite(motorPin1,HIGH);
+    digitalWrite(motorPin2,LOW);
+    digitalWrite(motorPin3,LOW);
+    digitalWrite(motorPin4,LOW);
+
+   delay(2000);
+  }
+  
+  else
+  {
+      digitalWrite(11,LOW );
+      digitalWrite(motorPin1,LOW);
+digitalWrite(motorPin2,LOW);
+digitalWrite(motorPin3,LOW);
+digitalWrite(motorPin4,LOW);
+  } 
+      wifiStatus = WiFi.status();
+  if(WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    while(WiFi.status() != WL_CONNECTED)
+    {
+      WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+      Serial.print(".");
+      delay(5000);     
+    } 
+    Serial.println("\nConnected.");delay(1000); // check for connection every once a second
+  }
+  ThingSpeak.setField(1, t);
+  ThingSpeak.setField(2, val);
+  if(t> val){
+    myStatus = String("field1 is greater than field2"); 
+  }
+  else if(t < val){
+    myStatus = String("field1 is less than field2");
+  }
+  else{
+    myStatus = String("field1 equals field2");
+  }
+  // set the status
+  ThingSpeak.setStatus(myStatus);
+  
+  // write to the ThingSpeak channel
+  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  if(x == 200){
+    Serial.println("Channel update successful.");
+  }
+  else{
+    Serial.println("Problem updating channel. HTTP error code " + String(x));
+  }
+  Serial.print("Humidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  Serial.print(" *C ");
+  Serial.print("moisture:");
+  Serial.print(val);
+  delay(2000);
+
+}
+
+void Morning Alarm() 
+{
+  digitalWrite(pin,HIGH);
+  Serial.println("Music time");
+   delay(1000);
+}
+
+void EveningAlarm() {
+  
+  digitalWrite(pin,LOW);
+  Serial.println("music time over");
+   delay(1000);
+}
+
+void WeeklyAlarm() {
+  Serial.println("Alarm: - its WEDNESDAY  Morning");
+}
+
+void ExplicitAlarm() 
+{
+  Serial.println("Alarm: - this triggers only at the given date and time");
+}
+
+void Repeats() 
+{
+  Serial.println("15 second timer");
+}
+
+void Repeats2() 
+{
+  Serial.println("2 second timer");
+}
+
+void OnceOnly() 
+{
+  Serial.println("This timer only triggers once, stop the 2 second timer");
+  // use Alarm.free() to disable a timer and recycle its memory.
+  Alarm.free(id);
+  // optional, but safest to "forget" the ID after memory recycled
+  id = dtINVALID_ALARM_ID;
+  // you can also use Alarm.disable() to turn the timer off, but keep
+  // it in memory, to turn back on later with Alarm.enable().
+}
+
+void digitalClockDisplay() 
+{
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.println();
+}
+
+void printDigits(int digits) 
+{
+  Serial.print(":");
+  if (digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
